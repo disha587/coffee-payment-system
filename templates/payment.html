@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Coffee Payment</title>
+</head>
+
+<body>
+
+    <h1>☕ Coffee Machine</h1>
+
+    <h2>Pay ₹10 for your coffee</h2>
+
+    <button id="pay-button">Pay ₹10</button>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <script>
+        document.getElementById("pay-button").onclick = async function () {
+
+            // Ask Python server to create Razorpay order
+            const response = await fetch("/create-order");
+
+            const order = await response.json();
+
+            const options = {
+                "key": order.key_id,
+                "amount": order.amount,
+                "currency": order.currency,
+                "name": "Coffee Machine",
+                "description": "Coffee Payment",
+                "order_id": order.order_id,
+
+                "handler": function (response) {
+
+                    alert(
+                        "Payment Successful!\n\n" +
+                        "Payment ID: " + response.razorpay_payment_id
+                    );
+
+                    console.log(response);
+                },
+
+                "theme": {
+                    "color": "#3399cc"
+                }
+            };
+
+            const rzp = new Razorpay(options);
+
+            rzp.open();
+        };
+
+    </script>
+
+</body>
+</html>
