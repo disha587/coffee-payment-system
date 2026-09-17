@@ -2,22 +2,110 @@
 <html>
 <head>
     <title>Coffee Payment</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f5f1eb;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #5a3218;
+        }
+
+        .coffee-list {
+            max-width: 500px;
+            margin: 30px auto;
+        }
+
+        .coffee-item {
+            background: white;
+            margin: 12px;
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        .coffee-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .coffee-price {
+            color: #5a3218;
+            font-weight: bold;
+        }
+
+        #pay-button {
+            background-color: #5a3218;
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        #pay-button:hover {
+            background-color: #3d2110;
+        }
+    </style>
 </head>
 
 <body>
 
     <h1>☕ Coffee Machine</h1>
 
-    <h2>Pay ₹10 for your coffee</h2>
+    <h2>Available Coffees</h2>
 
-    <button id="pay-button">Pay ₹10</button>
+    <div class="coffee-list">
+
+        <div class="coffee-item">
+            <span class="coffee-name">Normal Coffee</span>
+            <span class="coffee-price">₹20</span>
+        </div>
+
+        <div class="coffee-item">
+            <span class="coffee-name">Espresso</span>
+            <span class="coffee-price">₹20</span>
+        </div>
+
+        <div class="coffee-item">
+            <span class="coffee-name">Mocha</span>
+            <span class="coffee-price">₹35</span>
+        </div>
+
+        <div class="coffee-item">
+            <span class="coffee-name">Latte</span>
+            <span class="coffee-price">₹30</span>
+        </div>
+
+        <div class="coffee-item">
+            <span class="coffee-name">Cappuccino</span>
+            <span class="coffee-price">₹30</span>
+        </div>
+
+        <div class="coffee-item">
+            <span class="coffee-name">Hot Milk</span>
+            <span class="coffee-price">₹15</span>
+        </div>
+
+    </div>
+
+    <h2>Payment</h2>
+
+    <button id="pay-button">Pay ₹20</button>
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
     <script>
         document.getElementById("pay-button").onclick = async function () {
 
-            // Ask Python server to create Razorpay order
             const response = await fetch("/create-order");
 
             const order = await response.json();
@@ -41,7 +129,7 @@
                 },
 
                 "theme": {
-                    "color": "#3399cc"
+                    "color": "#5a3218"
                 }
             };
 
@@ -49,7 +137,6 @@
 
             rzp.open();
         };
-
     </script>
 
 </body>
