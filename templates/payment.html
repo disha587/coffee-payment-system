@@ -118,15 +118,42 @@
                 "description": "Coffee Payment",
                 "order_id": order.order_id,
 
-                "handler": function (response) {
+               "handler": async function (response) {
 
-                    alert(
-                        "Payment Successful!\n\n" +
-                        "Payment ID: " + response.razorpay_payment_id
-                    );
+    const verifyResponse = await fetch("/verify-payment", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+        })
+    });
 
-                    console.log(response);
-                },
+    const result = await verifyResponse.json();
+
+    if (result.status === "success") {
+
+        alert(
+            "Payment Successful and Verified! ✅\n\n" +
+            "Payment ID: " +
+            response.razorpay_payment_id
+        );
+
+        console.log("Payment verified:", result);
+
+    } else {
+
+        alert(
+            "Payment verification failed. ❌\n\n" +
+            "Please contact support."
+        );
+
+        console.log("Verification failed:", result);
+    }
+},
 
                 "theme": {
                     "color": "#5a3218"
