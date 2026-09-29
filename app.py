@@ -3,63 +3,42 @@ from dotenv import load_dotenv
 import os
 import time
 import razorpay
+import requests
 
-
-# ============================================
+# ==============================
 # LOAD ENVIRONMENT VARIABLES
-# ============================================
-
+# ==============================
 load_dotenv()
-
-
-# ============================================
-# CREATE FLASK APP
-# ============================================
-
-app = Flask(__name__)
-
-
-# ============================================
-# RAZORPAY CONFIGURATION
-# ============================================
 
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
+# ==============================
+# FLASK APP
+# ==============================
+app = Flask(__name__)
 
-if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
-    print("WARNING: Razorpay keys are missing!")
-
-
+# Razorpay client
 client = razorpay.Client(
     auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)
 )
 
 
-# ============================================
+# =========================================================
 # HOME PAGE
-# ============================================
-
+# =========================================================
 @app.route("/")
 def home():
     return render_template("payment.html")
 
 
-# ============================================
+# =========================================================
 # CREATE NORMAL RAZORPAY ORDER
-# ============================================
-
+# =========================================================
 @app.route("/create-order", methods=["POST"])
 def create_order():
-
     try:
-
         data = request.get_json()
-
-        print("================================")
-        print("CREATE ORDER REQUEST")
-        print("Received:", data)
-        print("================================")
 
         if not data or "amount" not in data:
             return jsonify({
@@ -69,46 +48,22 @@ def create_order():
 
         amount = int(data["amount"])
 
-        if amount <= 0:
-            return jsonify({
-                "status": "failed",
-                "error": "Invalid amount"
-            }), 400
-
-        amount_paise = amount * 100
-
         order_data = {
-            "amount": amount_paise,
+            "amount": amount * 100,
             "currency": "INR",
-            "receipt": "coffee_" + str(int(time.time())),
             "payment_capture": 1
         }
 
-        print("Creating Razorpay order...")
-        print("Amount:", amount)
-        print("Amount in paise:", amount_paise)
-
         order = client.order.create(data=order_data)
-
-        print("================================")
-        print("RAZORPAY ORDER CREATED")
-        print("Order ID:", order["id"])
-        print("================================")
 
         return jsonify({
             "status": "success",
             "order_id": order["id"],
-            "amount": amount,
-            "amount_paise": amount_paise,
-            "key_id": RAZORPAY_KEY_ID
+            "amount": amount
         })
 
     except Exception as e:
-
-        print("================================")
-        print("ORDER CREATION ERROR")
-        print(str(e))
-        print("================================")
+        print("ORDER CREATION ERROR:", str(e))
 
         return jsonify({
             "status": "failed",
@@ -116,67 +71,41 @@ def create_order():
         }), 500
 
 
-# ============================================
+# =========================================================
 # VERIFY NORMAL RAZORPAY PAYMENT
-# ============================================
-
+# =========================================================
 @app.route("/verify-payment", methods=["POST"])
 def verify_payment():
-
     try:
-
         data = request.get_json()
 
+        print()
         print("================================")
-        print("PAYMENT VERIFICATION")
+        print("VERIFY PAYMENT")
+        print("================================")
         print("Received:", data)
-        print("================================")
 
-        if not data:
-            return jsonify({
-                "status": "failed",
-                "error": "No payment data received"
-            }), 400
-
-        required_fields = [
-            "razorpay_order_id",
-            "razorpay_payment_id",
-            "razorpay_signature"
-        ]
-
-        for field in required_fields:
-
-            if field not in data:
-                return jsonify({
-                    "status": "failed",
-                    "error": f"Missing field: {field}"
-                }), 400
-
-        verification_data = {
+        params_dict = {
             "razorpay_order_id": data["razorpay_order_id"],
             "razorpay_payment_id": data["razorpay_payment_id"],
             "razorpay_signature": data["razorpay_signature"]
         }
 
-        client.utility.verify_payment_signature(
-            verification_data
-        )
+        client.utility.verify_payment_signature(params_dict)
 
-        print("================================")
-        print("PAYMENT VERIFIED SUCCESSFULLY")
-        print("Payment ID:", data["razorpay_payment_id"])
+        print("PAYMENT SIGNATURE VERIFIED")
         print("================================")
 
         return jsonify({
             "status": "success",
-            "message": "Payment Successful and Verified!",
-            "payment_id": data["razorpay_payment_id"]
+            "message": "Payment Successful and Verified!"
         })
 
     except Exception as e:
-
+        print()
         print("================================")
         print("PAYMENT VERIFICATION ERROR")
+        print("================================")
         print(str(e))
         print("================================")
 
@@ -186,15 +115,12 @@ def verify_payment():
         }), 400
 
 
-# ============================================
+# =========================================================
 # CREATE REAL RAZORPAY UPI QR
-# ============================================
-
+# =========================================================
 @app.route("/create-qr", methods=["POST"])
 def create_qr():
-
     try:
-
         data = request.get_json()
 
         print()
@@ -203,12 +129,10 @@ def create_qr():
         print("================================")
         print("Received data:", data)
 
-        # ----------------------------------------
+        # -----------------------------
         # CHECK AMOUNT
-        # ----------------------------------------
-
+        # -----------------------------
         if not data or "amount" not in data:
-
             return jsonify({
                 "status": "failed",
                 "error": "Amount is required"
@@ -217,41 +141,28 @@ def create_qr():
         amount_rupees = int(data["amount"])
 
         if amount_rupees <= 0:
-
             return jsonify({
                 "status": "failed",
                 "error": "Invalid amount"
             }), 400
 
-        # ----------------------------------------
-        # CONVERT RUPEES TO PAISE
-        # ----------------------------------------
-
+        # Convert rupees to paise
         amount_paise = amount_rupees * 100
 
-        # QR expiry = 15 minutes
+        # QR valid for 15 minutes
         close_by = int(time.time()) + (15 * 60)
 
-        # ----------------------------------------
+        # -----------------------------
         # RAZORPAY QR DATA
-        # ----------------------------------------
-
+        # -----------------------------
         qr_data = {
-
             "type": "upi_qr",
-
             "name": "Coffee Vending Machine",
-
             "usage": "single_use",
-
             "fixed_amount": True,
-
             "payment_amount": amount_paise,
-
             "description": "Coffee payment",
-
             "close_by": close_by,
-
             "notes": {
                 "source": "coffee_vending_machine"
             }
@@ -260,58 +171,78 @@ def create_qr():
         print("--------------------------------")
         print("QR DATA")
         print("--------------------------------")
-
         print("Amount (rupees):", amount_rupees)
         print("Amount (paise):", amount_paise)
         print("QR data:", qr_data)
 
-        # ----------------------------------------
-        # CREATE QR USING RAZORPAY
-        # ----------------------------------------
+        # =================================================
+        # IMPORTANT:
+        # DIRECT RAZORPAY API REQUEST
+        # =================================================
+        razorpay_url = (
+            "https://api.razorpay.com/v1/payments/qr_codes"
+        )
 
+        print("--------------------------------")
+        print("RAZORPAY URL:")
+        print(razorpay_url)
         print("--------------------------------")
         print("Sending request to Razorpay...")
+
+        response = requests.post(
+            razorpay_url,
+            auth=(
+                RAZORPAY_KEY_ID,
+                RAZORPAY_KEY_SECRET
+            ),
+            json=qr_data,
+            timeout=30
+        )
+
+        print("--------------------------------")
+        print("RAZORPAY RESPONSE")
+        print("--------------------------------")
+        print("HTTP Status:", response.status_code)
+        print("Response:", response.text)
         print("--------------------------------")
 
-        qr = client.qrcode.create(qr_data)
+        # -----------------------------
+        # CHECK RESPONSE
+        # -----------------------------
+        if response.status_code not in [200, 201]:
 
-        # ----------------------------------------
-        # PRINT RESPONSE
-        # ----------------------------------------
+            return jsonify({
+                "status": "failed",
+                "error": response.text,
+                "razorpay_status": response.status_code
+            }), 500
+
+        # -----------------------------
+        # READ QR RESPONSE
+        # -----------------------------
+        qr = response.json()
 
         print()
         print("================================")
         print("RAZORPAY QR CREATED SUCCESSFULLY")
         print("================================")
-
         print("QR ID:", qr.get("id"))
         print("QR Status:", qr.get("status"))
         print("QR Image URL:", qr.get("image_url"))
         print("QR Image Content:", qr.get("image_content"))
-        print("Payment Amount:", qr.get("payment_amount"))
-
         print("================================")
 
-        # ----------------------------------------
-        # SEND RESPONSE TO ESP32
-        # ----------------------------------------
-
+        # -----------------------------
+        # SEND QR DATA TO ESP32
+        # -----------------------------
         return jsonify({
-
             "status": "success",
-
             "qr_id": qr.get("id"),
-
             "image_content": qr.get("image_content"),
-
             "image_url": qr.get("image_url"),
-
             "amount": amount_rupees,
-
             "amount_paise": amount_paise
-
         })
-
 
     except Exception as e:
 
@@ -319,39 +250,31 @@ def create_qr():
         print("================================")
         print("RAZORPAY QR CREATION ERROR")
         print("================================")
-
         print("ERROR TYPE:", type(e).__name__)
         print("ERROR:", str(e))
-
         print("================================")
 
         return jsonify({
-
             "status": "failed",
-
             "error": str(e)
-
         }), 500
 
 
-# ============================================
+# =========================================================
 # CHECK QR PAYMENT STATUS
-# ============================================
-
+# =========================================================
 @app.route("/check-qr-payment", methods=["POST"])
 def check_qr_payment():
-
     try:
-
         data = request.get_json()
 
         print()
         print("================================")
         print("CHECK QR PAYMENT")
         print("================================")
+        print("Received:", data)
 
         if not data or "qr_id" not in data:
-
             return jsonify({
                 "status": "failed",
                 "error": "QR ID is required"
@@ -359,52 +282,49 @@ def check_qr_payment():
 
         qr_id = data["qr_id"]
 
-        print("QR ID:", qr_id)
+        # Razorpay API
+        url = (
+            "https://api.razorpay.com/v1/payments/qr_codes/"
+            + qr_id
+            + "/payments"
+        )
 
-        # ----------------------------------------
-        # FETCH PAYMENTS FOR THIS QR
-        # ----------------------------------------
+        response = requests.get(
+            url,
+            auth=(
+                RAZORPAY_KEY_ID,
+                RAZORPAY_KEY_SECRET
+            ),
+            timeout=30
+        )
 
-        payments = client.qrcode.fetch_all_payments(qr_id)
+        print("--------------------------------")
+        print("RAZORPAY PAYMENT RESPONSE")
+        print("--------------------------------")
+        print("HTTP Status:", response.status_code)
+        print("Response:", response.text)
+        print("--------------------------------")
 
-        print("Payments response:")
-        print(payments)
-
-        items = payments.get("items", [])
-
-        # ----------------------------------------
-        # NO PAYMENT YET
-        # ----------------------------------------
-
-        if len(items) == 0:
-
-            print("Payment not received yet.")
-
+        if response.status_code != 200:
             return jsonify({
+                "status": "failed",
+                "error": response.text
+            }), 500
 
-                "status": "pending",
+        payment_data = response.json()
 
-                "paid": False,
+        items = payment_data.get("items", [])
 
-                "qr_id": qr_id
+        # ---------------------------------
+        # PAYMENT FOUND
+        # ---------------------------------
+        if len(items) > 0:
 
-            })
-
-
-        # ----------------------------------------
-        # CHECK PAYMENTS
-        # ----------------------------------------
-
-        for payment in items:
+            payment = items[0]
 
             payment_status = payment.get("status")
 
-            print("Payment ID:", payment.get("id"))
-            print("Payment Status:", payment_status)
-            print(
-                "Payment Amount:",
-                payment.get("amount")
-            )
+            print("Payment status:", payment_status)
 
             if payment_status == "captured":
 
@@ -412,38 +332,24 @@ def check_qr_payment():
                 print("================================")
                 print("PAYMENT SUCCESSFUL")
                 print("================================")
+                print("Payment ID:", payment.get("id"))
+                print("Amount:", payment.get("amount"))
+                print("================================")
 
                 return jsonify({
-
                     "status": "success",
-
-                    "paid": True,
-
-                    "qr_id": qr_id,
-
+                    "payment_status": "captured",
                     "payment_id": payment.get("id"),
-
-                    "amount": payment.get("amount"),
-
-                    "payment_status": payment_status
-
+                    "amount": payment.get("amount")
                 })
 
-
-        # ----------------------------------------
-        # PAYMENT EXISTS BUT NOT CAPTURED
-        # ----------------------------------------
-
+        # ---------------------------------
+        # PAYMENT NOT FOUND YET
+        # ---------------------------------
         return jsonify({
-
             "status": "pending",
-
-            "paid": False,
-
-            "qr_id": qr_id
-
+            "payment_status": "pending"
         })
-
 
     except Exception as e:
 
@@ -451,58 +357,32 @@ def check_qr_payment():
         print("================================")
         print("QR PAYMENT CHECK ERROR")
         print("================================")
-
-        print("ERROR TYPE:", type(e).__name__)
         print("ERROR:", str(e))
-
         print("================================")
 
         return jsonify({
-
             "status": "failed",
-
-            "paid": False,
-
             "error": str(e)
-
         }), 500
 
 
-# ============================================
+# =========================================================
 # ESP32 TEST ROUTE
-# ============================================
-
+# =========================================================
 @app.route("/esp32-test")
 def esp32_test():
 
     return jsonify({
-
         "status": "success",
-
-        "message": "ESP32 can connect to Flask server",
-
-        "server": "coffee-payment-system",
-
-        "razorpay": "configured"
-
+        "message": "ESP32 connected to Flask server"
     })
 
 
-# ============================================
+# =========================================================
 # RUN FLASK
-# ============================================
-
+# =========================================================
 if __name__ == "__main__":
-
-    print()
-    print("================================")
-    print("COFFEE PAYMENT SYSTEM")
-    print("================================")
-    print("Flask server starting...")
-    print("================================")
-
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=int(os.environ.get("PORT", 5000))
     )
