@@ -813,24 +813,23 @@ def create_qr():
 
         return jsonify({
 
-            "status":
-                "success",
+    "status": "success",
 
-            "qr_id":
-                qr_id,
+    "qr_id": qr_id,
 
-            "upi_content":
-                upi_content,
+    # Decoded Razorpay UPI QR content
+    "upi_content": upi_content,
 
-            "image_url":
-                image_url,
+    # ESP32-compatible field
+    "image_content": upi_content,
 
-            "amount":
-                amount_rupees,
+    "image_url": image_url,
 
-            "amount_paise":
-                amount_paise
-        })
+    "amount": amount_rupees,
+
+    "amount_paise": amount_paise
+
+})
 
 
     except Exception as e:
